@@ -1,0 +1,145 @@
+---
+title: "smoking"
+author: "Egor Yavorskii"
+date: "2024-06-19"
+output: pdf_document
+---
+
+```{r}
+library(readr)
+library(ggplot2)
+library(naniar)
+library(BSDA)
+library(psych)
+library(GGally)
+library(data.table)
+```
+
+
+```{r}
+data <- read_csv('C:/Users/Егор/Downloads/smoking (1).csv')
+data$...1 = NULL
+data$smoke <- as.factor(data$smoke)
+data$week <- data$amt_weekends + data$amt_weekdays
+```
+
+
+```{r}
+gg_miss_var(data) #проверка на NA
+data_no_smokers <- data %>% filter(data$smoke == 'No')
+data_smokers <- data %>% filter(data$smoke == 'Yes')
+data_no_smokers$amt_weekends <- NULL
+data_no_smokers$amt_weekdays <- NULL
+data_no_smokers$type <- NULL
+```
+
+
+```{r}
+describe(data_smokers) %>% select(mean, sd, median, min, max, range, skew, kurtosis)
+describe(data_no_smokers) %>% select(mean, sd, median, min, max, range, skew, kurtosis)
+```
+
+H0: средний возраст курящих людей равен среднему возрасту некурящих
+НА: средний возраст курящих людей не равен среднему возрасту некурящих
+```{r}
+t.test(data$age~data$smoke, data = data)
+```
+По результатам t-теста p-value < 2.2e - 16 < 0.05, это означает, что мы отклоняем нулевую 
+гипотезу. Мы предпологаем, что в группе некурящих людей средний возраст больше, для проверки этого мы проведем двувыборочный односторонний t-тест:
+
+
+H0: средний возраст курящих людей меньше среднего возраста некурящих
+НА: средний возраст курящих людей больше среднего возраста некурящих
+```{r}
+t.test(data$age~data$smoke, data = data, alternative = 'less')
+```
+p-value = 1 > 0.05, это означает, что мы не отвергаем нулевую гипотезу => средний возраст некурящих людей больше среднего возраста курящих
+
+
+Следующим шагом мы решили оценить сколько пачек сигарет выкуривают курильщики в неделю, чтобы определить уровень потребления табачной продукции среди населения
+H0: среднее количестов выкуренных сигарет в неделю = 20
+HА: среднее количестов выкуренных сигарет в неделю != 20
+```{r}
+z.test(data_smokers$week, mu = 20, sigma.x = 18.3)
+```
+p-value < 2.2e-16 < 0.05 значит мы отвергаем нулевую гипотезу. 
+По результатам тестов:
+По итогам теста, мы понимаем, что среднее количестов выкуренных сигарет в неделю ≈ 30 ≈ 1.5 пачки сигарет
+
+
+Так как Великобритания это соединенное королевство, в котором есть множество регионов, для более наглядного предстваления результатов исследования необходимо проверить влияет ли географическое положение курящего человека на среднее количество выкуренных сигарет в неделю
+
+Н0: Среднее количества выкуренных сигарет в неделю у курящих жителей из разных регионов Великобритании равны
+НА: Среднее количества выкуренных сигарет в неделю у курящих жителей из разных регионов Великобритании не равны
+```{r}
+summary(aov(data_smokers$week~data_smokers$region, data = data))
+```
+p-value = 0.0622 > 0.05, следовательно мы не отвергаем нулевую гипотезу и понимаем, что количество выкуренных сигарет в неделю не зависит от места проживания человека
+
+Н0: Среднее количества выкуренных сигарет в неделю зависит от семейного положения человека
+НА: Среднее количества выкуренных сигарет в неделю не зависит от семейного положения человека
+```{r}
+summary(aov(data_smokers$week~data_smokers$marital_status, data = data))
+```
+По итогам теста p-value = 0.519 > 0.05, значит нулевая гипотеза не отклоняется, и зависимость между семейным положением и курением есть.
+
+Результаты тестов продемонстрируем далее на графиках
+
+```{r}
+# Средний возраст в зависимости от курение
+ggplot(data, aes(x = smoke, y = age)) +
+  geom_boxplot() +
+  labs(title = "Возраст людей в зависимости от статуса курения", x = "Статус курения", y = "Возраст") +
+  theme(axis.ticks = element_blank())
+```
+
+```{r}
+# Среднее количество выкуренных сигарет в неделю
+ggplot(data_smokers, aes(y = week)) +
+  geom_boxplot() +
+  labs(title = "Количество выкуренных сигарет в неделю ",  y = "Количество сигарет")+
+  theme(axis.text.x = element_blank(),
+  axis.ticks.x = element_blank())
+```
+
+```{r}
+# Зависимость выкуренных сигарет в неделю от места жительства
+ggplot(data_smokers, aes(x = region, y = week)) +
+  geom_boxplot() +
+  labs(title = "Количество выкуренных сигарет в зависимости от региона", x = "Регион проживания", y = "Количество выкуренных сигарет")+
+  theme(axis.text.x = element_text(size = 7))
+```
+
+```{r}
+# Зависимость статуса курения от семейного положения(курящие)
+ggplot(data_smokers, aes(x = smoke, fill = marital_status)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Семейное положение у курящих людей",  y = "Количество человек") +
+  scale_fill_manual(values = c("#BE2A3E", "#3C8D53", "#EACF65", "grey","pink"))+
+  theme(axis.text.x = element_blank(),
+  axis.ticks.x = element_blank(),
+  axis.title.x = element_blank()) + 
+  labs(fill='Семейное положение')
+```
+
+```{r}
+# Зависимость статуса курения от семейного положения(некурящие)
+ggplot(data_no_smokers, aes(x = smoke, fill = marital_status)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Семейное положение у некурящих людей",  y = "Количество человек")+
+  scale_fill_manual(values = c("#BE2A3E", "#3C8D53", "#EACF65", "grey","pink"))+
+  theme(axis.text.x = element_blank(),
+  axis.ticks.x = element_blank(),
+  axis.title.x = element_blank()) + 
+  labs(fill='Семейное положение')
+```
+
+
+```{r}
+ggplot(data_smokers, aes(x = marital_status, y = week, fill = marital_status)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Количество выкуренных сигарет в неделю в зависимости от семейного положения", x = "Семейное положение", y = "Количество сигарет в неделю") +
+  scale_fill_manual(values = c("#BE2A3E", "#3C8D53", "#EACF65", "grey","pink")) +      theme(legend.position="none",
+      plot.title = element_text(hjust = 0.9))
+```
+
